@@ -1,0 +1,213 @@
+# Workflow name
+name: Build and Deploy ERC-20 Geth
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+# Environment variables used throughout the workflow
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west1
+  IMAGE_NAME: erc20
+  HELM_CHART_PATH: ./charts/erc20-geth
+  REPOSITORY_NAME: erc20-geth
+  NAMESPACE: erc20
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+    # Checkout repository code
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    # Set up Node.js for contract compilation
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    # Install project dependencies
+    - name: Install dependencies
+      run: npm ci
+
+    # Compile smart contracts
+    - name: Compile contracts
+      run: npm run compile
+
+    # Set up Docker Buildx for better caching
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    # Set up GCP authentication
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        token_format: 'access_token'
+        audience: 'https://iam.googleapis.com/projects/${{ env.PROJECT_ID }}/locations/global/workloadIdentityPools/'
+
+    # Install and configure Google Cloud SDK
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+
+    # Install gke-gcloud-auth-plugin for kubectl authentication
+    - name: Install GKE Auth Plugin
+      run: |
+        echo "Installing GKE authentication plugin..."
+        gcloud components install gke-gcloud-auth-plugin --quiet
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+
+    # Get credentials for GKE cluster access
+    - name: Get GKE credentials
+      uses: google-github-actions/get-gke-credentials@v1
+      with:
+        cluster_name: 'erc20-cluster'
+        location: ${{ env.GCP_REGION }}
+        project_id: ${{ env.PROJECT_ID }}
+        use_auth_provider: true
+
+    # Configure Docker for using GCP Artifact Registry
+    - name: Configure Docker for GCP Artifact Registry
+      run: |
+        gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+    # Build and push Docker image
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./docker/geth
+        push: true
+        tags: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }},${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    # Update Helm values with new image tag
+    - name: Update Helm values
+      run: |
+        set -e
+        
+        IMAGE_TAG="${{ github.sha }}"
+        VALUES_FILE="${{ env.HELM_CHART_PATH }}/values.yaml"
+        
+        echo "Updating Helm values with tag: $IMAGE_TAG"
+
+        # Install yq
+        wget https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 -O /usr/local/bin/yq
+        chmod +x /usr/local/bin/yq
+
+        # Update the values using yq
+        yq -i '.geth.image.repository = "'${{ env.GCP_REGION }}'-docker.pkg.dev/'${{ env.PROJECT_ID }}'/'${{ env.REPOSITORY_NAME }}'/'${{ env.IMAGE_NAME }}'"' $VALUES_FILE
+        yq -i '.geth.image.tag = "'$IMAGE_TAG'"' $VALUES_FILE
+        yq -i '.geth.image.pullPolicy = "Always"' $VALUES_FILE
+        
+        # Set appropriate network based on environment
+        if [[ "${{ github.event.inputs.deploy_environment }}" == "prod" ]]; then
+          yq -i '.geth.network = "sepolia"' $VALUES_FILE
+        else
+          yq -i '.geth.network = "dev"' $VALUES_FILE
+        fi
+        
+        # Display updated values
+        echo "Updated Helm values:"
+        cat $VALUES_FILE
+
+    # Validate Helm Chart
+    - name: Validate Helm Chart
+      run: |
+        helm lint ${{ env.HELM_CHART_PATH }}
+
+    # Create namespace if it doesn't exist
+    - name: Create namespace
+      run: |
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+    # Deploy to GKE
+    - name: Deploy to GKE
+      env:
+        USE_GKE_GCLOUD_AUTH_PLUGIN: True
+      run: |
+        # Reactivate GCP authentication
+        gcloud container clusters get-credentials erc20-cluster \
+          --region ${{ env.GCP_REGION }} \
+          --project ${{ env.PROJECT_ID }}
+        
+        # Check if release exists and is deployed successfully
+        if helm list -n ${{ env.NAMESPACE }} | grep -q "erc20-geth" && \
+            helm status erc20-geth -n ${{ env.NAMESPACE }} | grep -q "deployed"; then
+          echo "Found successfully deployed release, performing upgrade..."
+          helm upgrade erc20-geth ${{ env.HELM_CHART_PATH }} \
+            --namespace ${{ env.NAMESPACE }} \
+            --wait \
+            --timeout 10m \
+            --atomic
+        else
+          echo "No successful deployment found, cleaning up any failed releases..."
+          helm uninstall erc20-geth -n ${{ env.NAMESPACE }} || true
+          sleep 10
+          
+          echo "Installing new erc20-geth release..."
+          helm install erc20-geth ${{ env.HELM_CHART_PATH }} \
+            --namespace ${{ env.NAMESPACE }} \
+            --wait \
+            --timeout 10m \
+            --atomic
+        fi
+        
+    # Run contract deployment to the deployed node
+    - name: Setup contract deployment
+      if: github.event.inputs.deploy_environment == 'prod'
+      run: |
+        # Wait for the node to be ready
+        echo "Waiting for Geth node to be ready..."
+        kubectl wait --for=condition=available --timeout=300s deployment/erc20-geth -n ${{ env.NAMESPACE }}
+        
+        # Set up port forwarding in the background
+        kubectl port-forward service/erc20-geth 8545:8545 -n ${{ env.NAMESPACE }} &
+        PORT_FORWARD_PID=$!
+        
+        # Wait for port to be ready
+        sleep 10
+        
+        # Create .env file for deployment
+        echo "SEPOLIA_RPC_URL=http://localhost:8545" > .env
+        echo "SEPOLIA_PRIVATE_KEY=${{ secrets.SEPOLIA_PRIVATE_KEY }}" >> .env
+        
+        # Deploy the contract
+        npm run deploy
+        
+        # Kill port forwarding
+        kill $PORT_FORWARD_PID
+        
+    # Add notification step
+    - name: Notify deployment completion
+      if: success()
+      run: |
+        echo "Deployment completed successfully to ${{ env.NAMESPACE }} namespace"
+        echo "To access the Geth node, run:"
+        echo "kubectl port-forward service/erc20-geth 8545:8545 -n ${{ env.NAMESPACE }}"
