@@ -1,0 +1,13 @@
+apiVersion: v2
+name: erc20-geth
+description: A Helm chart for ERC-20 Geth node deployment on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: charlesmg
+keywords:
+  - ethereum
+  - geth
+  - erc20
+  - blockchain 

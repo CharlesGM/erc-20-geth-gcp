@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erc20-geth.fullname" . }}
+  labels:
+    {{- include "erc20-geth.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.geth.service.type }}
+  selector:
+    {{- include "erc20-geth.selectorLabels" . | nindent 4 }}
+  ports:
+  - port: {{ .Values.geth.service.httpPort }}
+    name: http-rpc
+    targetPort: http-rpc
+  - port: {{ .Values.geth.service.wsPort }}
+    name: ws-rpc
+    targetPort: ws-rpc 

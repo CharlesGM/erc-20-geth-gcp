@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "erc20-geth.fullname" . }}
+  labels:
+    {{- include "erc20-geth.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "erc20-geth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "erc20-geth.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: geth
+        image: "{{ .Values.geth.image.repository }}:{{ .Values.geth.image.tag }}"
+        imagePullPolicy: {{ .Values.geth.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.geth.service.httpPort }}
+          name: http-rpc
+        - containerPort: {{ .Values.geth.service.wsPort }}
+          name: ws-rpc
+        env:
+        - name: GETH_NETWORK
+          value: "{{ .Values.geth.network }}"
+        - name: GETH_DATA_DIR
+          value: "/data/geth"
+        - name: GETH_RPC_PORT
+          value: "{{ .Values.geth.service.httpPort }}"
+        - name: GETH_WS_PORT
+          value: "{{ .Values.geth.service.wsPort }}"
+        volumeMounts:
+        - name: geth-storage
+          mountPath: /data/geth
+        {{- with .Values.geth.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: geth-storage
+        {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "erc20-geth.fullname" . }}-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }} 

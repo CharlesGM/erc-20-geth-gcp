@@ -1,0 +1,21 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your Ethereum Geth node has been deployed with the following configuration:
+- Network: {{ .Values.geth.network }}
+- HTTP RPC Port: {{ .Values.geth.service.httpPort }}
+- WS RPC Port: {{ .Values.geth.service.wsPort }}
+
+To access your Geth node from within the cluster:
+  http://{{ include "erc20-geth.fullname" . }}:{{ .Values.geth.service.httpPort }}
+
+To port-forward and access it locally:
+  kubectl port-forward service/{{ include "erc20-geth.fullname" . }} {{ .Values.geth.service.httpPort }}:{{ .Values.geth.service.httpPort }}
+  kubectl port-forward service/{{ include "erc20-geth.fullname" . }} {{ .Values.geth.service.wsPort }}:{{ .Values.geth.service.wsPort }}
+
+To connect your MetaMask wallet:
+1. Open MetaMask
+2. Add a new network with:
+   - Network Name: Geth ({{ .Values.geth.network }})
+   - RPC URL: http://localhost:{{ .Values.geth.service.httpPort }}
+   - Chain ID: 1337 (for dev) or 11155111 (for Sepolia)
+   - Currency Symbol: ETH 

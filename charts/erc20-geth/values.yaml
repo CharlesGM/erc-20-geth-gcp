@@ -1,0 +1,39 @@
+# Name override options
+nameOverride: ""
+fullnameOverride: ""
+
+# Geth node configuration
+geth:
+  image:
+    repository: gcr.io/your-gcp-project-id/geth
+    tag: latest
+    pullPolicy: Always
+  
+  # Network configuration (sepolia or dev)
+  network: sepolia
+  
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+      
+  # Service configuration  
+  service:
+    type: ClusterIP
+    httpPort: 8545
+    wsPort: 8546
+
+# Storage configuration for blockchain data
+persistence:
+  enabled: true
+  storageClass: "standard"
+  size: 50Gi
+  
+# Security context for the container
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000 
