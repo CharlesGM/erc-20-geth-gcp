@@ -104,21 +104,6 @@ jobs:
         project_id: ${{ env.PROJECT_ID }}
         use_auth_provider: true
 
-    # Verify kubectl configuration
-    - name: Verify kubectl configuration
-      run: |
-        echo "Current kubectl config:"
-        kubectl config view
-        echo "Current kubectl version:"
-        kubectl version --client
-        echo "Verifying GKE auth plugin installation:"
-        ls -la /usr/lib/google-cloud-sdk/bin/ | grep gke
-        echo "Checking if gke-gcloud-auth-plugin is in PATH:"
-        which gke-gcloud-auth-plugin || echo "gke-gcloud-auth-plugin not found in PATH"
-        echo "Setting explicit path to plugin:"
-        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
-        echo "PATH=$PATH" >> $GITHUB_ENV
-
     # Configure Docker for using GCP Artifact Registry
     - name: Configure Docker for GCP Artifact Registry
       run: |
