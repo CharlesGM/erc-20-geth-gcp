@@ -148,9 +148,14 @@ resource "kubernetes_service_account" "github_actions" {
 # Grant necessary roles to GitHub Actions service account
 resource "google_project_iam_member" "github_actions_roles" {
   for_each = toset([
+    "roles/container.developer",            # Access to GKE
     "roles/container.admin",                # Admin to GKE
+    "roles/iam.serviceAccountTokenCreator", # Token creation
     "roles/artifactregistry.writer",        # Push to Artifact Registry
-    "roles/iam.workloadIdentityUser"        # For Workload Identity
+    "roles/storage.objectViewer",           # Read access to GCS
+    "roles/iam.serviceAccountUser",         # Use service account
+    "roles/iam.serviceAccountTokenCreator",  # Create tokens
+    "roles/iam.workloadIdentityUser"       # For Workload Identity
   ])
 
   project = var.project_id
