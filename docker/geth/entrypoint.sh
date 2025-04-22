@@ -41,7 +41,5 @@ else
     --ws.port=$WS_PORT \
     --ws.origins="*" \
     --ws.api="eth,net,web3,personal,miner,txpool" \
-    --mine \
-    --miner.threads=1 \
     --allow-insecure-unlock
 fi 

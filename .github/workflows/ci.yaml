@@ -1,6 +1,6 @@
 # Workflow name
 name: Build and Deploy ERC-20 Geth
-# Trigger a new build with simplified Dockerfile using ConfigMap
+# Trigger a new build with updated ConfigMap and removed deprecated flags
 
 on:
   push:
