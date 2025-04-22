@@ -19,8 +19,8 @@ on:
 
 # Environment variables used throughout the workflow
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: europe-west1
+  PROJECT_ID: play-project-325908      # GCP project ID
+  GCP_REGION: europe-west1             # GCP region for resources
   IMAGE_NAME: erc20
   HELM_CHART_PATH: ./charts/erc20-geth
   REPOSITORY_NAME: erc20-geth
