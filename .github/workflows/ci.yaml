@@ -87,15 +87,13 @@ jobs:
     - name: Install GKE Auth Plugin
       run: |
         echo "Installing GKE authentication plugin..."
+        # Remove existing gcloud from PATH
+        export PATH=$(echo $PATH | tr ':' '\n' | grep -v 'google-cloud-sdk' | tr '\n' ':')
+        # Install the auth plugin
         gcloud components install gke-gcloud-auth-plugin --quiet
-        apt-get update && apt-get install -y apt-transport-https curl
-        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-        echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
-        apt-get update
-        apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-        echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
-        echo "Installing kubectl component"
-        gcloud components install kubectl --quiet
+        # Set the environment variable for auth plugin
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
     # Get credentials for GKE cluster access
     - name: Get GKE credentials
@@ -188,38 +186,42 @@ jobs:
 
     # Deploy to GKE
     - name: Deploy to GKE
-      run: |
-        # Ensure proper environment variables and path
-        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
-        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-        
+     env:
+        USE_GKE_GCLOUD_AUTH_PLUGIN: True
+     run: |
         # Reactivate GCP authentication
-        gcloud container clusters get-credentials erc-20 \
+        gcloud container clusters get-credentials erc20-cluster \
           --region ${{ env.GCP_REGION }} \
           --project ${{ env.PROJECT_ID }}
         
-        # Check if release exists and is deployed successfully
-        if helm list -n ${{ env.NAMESPACE }} | grep -q "erc20-geth" && \
-            helm status erc20-geth -n ${{ env.NAMESPACE }} | grep -q "deployed"; then
-          echo "Found successfully deployed release, performing upgrade..."
-          helm upgrade erc20-geth ${{ env.HELM_CHART_PATH }} \
-            --namespace ${{ env.NAMESPACE }} \
-            --wait \
-            --timeout 10m \
-            --atomic
-        else
-          echo "No successful deployment found, cleaning up any failed releases..."
-          helm uninstall erc20-geth -n ${{ env.NAMESPACE }} || true
-          sleep 10
-          
-          echo "Installing new erc20-geth release..."
-          helm install erc20-geth ${{ env.HELM_CHART_PATH }} \
-            --namespace ${{ env.NAMESPACE }} \
-            --wait \
-            --timeout 10m \
-            --atomic
-        fi
+        # Set namespace
+        NAMESPACE="erc20"
         
+        # Create namespace if it doesn't exist
+        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+  
+          # Check if release exists and is deployed successfully
+          if helm list -n ${NAMESPACE} | grep -q "erc20" && \
+              helm status erc20 -n ${NAMESPACE} | grep -q "deployed"; then
+            echo "Found successfully deployed release, performing upgrade..."
+            helm upgrade erc20 ${{ env.HELM_CHART_PATH }} \
+              --namespace ${NAMESPACE} \
+              --wait \
+              --timeout 10m \
+              --atomic
+          else
+            echo "No successful deployment found, cleaning up any failed releases..."
+            helm uninstall erc20 -n ${NAMESPACE} || true
+            sleep 10
+            
+            echo "Installing new erc20 release..."
+            helm install erc20 ${{ env.HELM_CHART_PATH }} \
+              --namespace ${NAMESPACE} \
+              --wait \
+              --timeout 10m \
+              --atomic
+          fi
+          
     # Run contract deployment to the deployed node
     - name: Setup contract deployment
       if: github.event.inputs.deploy_environment == 'prod'
