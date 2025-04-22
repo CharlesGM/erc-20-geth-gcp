@@ -186,11 +186,11 @@ jobs:
 
     # Deploy to GKE
     - name: Deploy to GKE
-     env:
+      env:
         USE_GKE_GCLOUD_AUTH_PLUGIN: True
-     run: |
+      run: |
         # Reactivate GCP authentication
-        gcloud container clusters get-credentials erc20-cluster \
+        gcloud container clusters get-credentials erc-20 \
           --region ${{ env.GCP_REGION }} \
           --project ${{ env.PROJECT_ID }}
         
@@ -200,27 +200,27 @@ jobs:
         # Create namespace if it doesn't exist
         kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
   
-          # Check if release exists and is deployed successfully
-          if helm list -n ${NAMESPACE} | grep -q "erc20" && \
-              helm status erc20 -n ${NAMESPACE} | grep -q "deployed"; then
-            echo "Found successfully deployed release, performing upgrade..."
-            helm upgrade erc20 ${{ env.HELM_CHART_PATH }} \
-              --namespace ${NAMESPACE} \
-              --wait \
-              --timeout 10m \
-              --atomic
-          else
-            echo "No successful deployment found, cleaning up any failed releases..."
-            helm uninstall erc20 -n ${NAMESPACE} || true
-            sleep 10
-            
-            echo "Installing new erc20 release..."
-            helm install erc20 ${{ env.HELM_CHART_PATH }} \
-              --namespace ${NAMESPACE} \
-              --wait \
-              --timeout 10m \
-              --atomic
-          fi
+        # Check if release exists and is deployed successfully
+        if helm list -n ${NAMESPACE} | grep -q "erc20" && \
+            helm status erc20 -n ${NAMESPACE} | grep -q "deployed"; then
+          echo "Found successfully deployed release, performing upgrade..."
+          helm upgrade erc20 ${{ env.HELM_CHART_PATH }} \
+            --namespace ${NAMESPACE} \
+            --wait \
+            --timeout 10m \
+            --atomic
+        else
+          echo "No successful deployment found, cleaning up any failed releases..."
+          helm uninstall erc20 -n ${NAMESPACE} || true
+          sleep 10
+          
+          echo "Installing new erc20 release..."
+          helm install erc20 ${{ env.HELM_CHART_PATH }} \
+            --namespace ${NAMESPACE} \
+            --wait \
+            --timeout 10m \
+            --atomic
+        fi
           
     # Run contract deployment to the deployed node
     - name: Setup contract deployment
