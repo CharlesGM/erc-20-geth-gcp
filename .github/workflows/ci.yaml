@@ -1,5 +1,6 @@
 # Workflow name
 name: Build and Deploy ERC-20 Geth
+# Trigger a new build with updated Docker image
 
 on:
   push:
