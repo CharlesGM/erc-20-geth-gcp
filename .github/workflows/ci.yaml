@@ -72,6 +72,13 @@ jobs:
         token_format: 'access_token'
         audience: 'https://token.actions.githubusercontent.com'
 
+    # Install kubectl
+    - name: Install kubectl
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
     # Install and configure Google Cloud SDK
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
@@ -81,12 +88,14 @@ jobs:
       run: |
         echo "Installing GKE authentication plugin..."
         gcloud components install gke-gcloud-auth-plugin --quiet
-        echo "Setting kubectl to use gke-gcloud-auth-plugin..."
-        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-        kubectl config set-cluster gke \
-          --server="https://$(gcloud container clusters describe erc-20 --region=${{ env.GCP_REGION }} --format='value(endpoint)')" \
-          --certificate-authority=<(gcloud container clusters describe erc-20 --region=${{ env.GCP_REGION }} --format='value(masterAuth.clusterCaCertificate)' | base64 --decode)
-        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+        apt-get update && apt-get install -y apt-transport-https curl
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+        echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+        apt-get update
+        apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+        echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+        echo "Installing kubectl component"
+        gcloud components install kubectl --quiet
 
     # Get credentials for GKE cluster access
     - name: Get GKE credentials
@@ -96,6 +105,21 @@ jobs:
         location: ${{ env.GCP_REGION }}
         project_id: ${{ env.PROJECT_ID }}
         use_auth_provider: true
+
+    # Verify kubectl configuration
+    - name: Verify kubectl configuration
+      run: |
+        echo "Current kubectl config:"
+        kubectl config view
+        echo "Current kubectl version:"
+        kubectl version --client
+        echo "Verifying GKE auth plugin installation:"
+        ls -la /usr/lib/google-cloud-sdk/bin/ | grep gke
+        echo "Checking if gke-gcloud-auth-plugin is in PATH:"
+        which gke-gcloud-auth-plugin || echo "gke-gcloud-auth-plugin not found in PATH"
+        echo "Setting explicit path to plugin:"
+        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
+        echo "PATH=$PATH" >> $GITHUB_ENV
 
     # Configure Docker for using GCP Artifact Registry
     - name: Configure Docker for GCP Artifact Registry
@@ -151,14 +175,25 @@ jobs:
     # Create namespace if it doesn't exist
     - name: Create namespace
       run: |
+        echo "Creating namespace ${{ env.NAMESPACE }}..."
+        # Use explicit path to kubectl
+        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        # Try direct connection to GKE using credentials file
+        gcloud container clusters get-credentials erc-20 \
+          --region ${{ env.GCP_REGION }} \
+          --project ${{ env.PROJECT_ID }}
+        # Create the namespace using a simplified command
+        kubectl get namespace ${{ env.NAMESPACE }} || kubectl create namespace ${{ env.NAMESPACE }}
 
     # Deploy to GKE
     - name: Deploy to GKE
       run: |
-        # Reactivate GCP authentication
+        # Ensure proper environment variables and path
+        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        
+        # Reactivate GCP authentication
         gcloud container clusters get-credentials erc-20 \
           --region ${{ env.GCP_REGION }} \
           --project ${{ env.PROJECT_ID }}
@@ -189,8 +224,11 @@ jobs:
     - name: Setup contract deployment
       if: github.event.inputs.deploy_environment == 'prod'
       run: |
-        # Wait for the node to be ready
+        # Ensure proper environment variables and path
+        export PATH=$PATH:/usr/lib/google-cloud-sdk/bin/
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        
+        # Wait for the node to be ready
         echo "Waiting for Geth node to be ready..."
         kubectl wait --for=condition=available --timeout=300s deployment/erc20-geth -n ${{ env.NAMESPACE }}
         
