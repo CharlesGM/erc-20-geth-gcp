@@ -69,7 +69,7 @@ jobs:
         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
         token_format: 'access_token'
-        audience: 'https://iam.googleapis.com/projects/${{ env.PROJECT_ID }}/locations/global/workloadIdentityPools/'
+        audience: 'https://token.actions.githubusercontent.com'
 
     # Install and configure Google Cloud SDK
     - name: Set up Cloud SDK
