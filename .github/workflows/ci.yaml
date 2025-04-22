@@ -1,6 +1,6 @@
 # Workflow name
 name: Build and Deploy ERC-20 Geth
-# Trigger a new build with updated Dockerfile that creates entrypoint.sh directly
+# Trigger a new build with simplified Dockerfile using ConfigMap
 
 on:
   push:

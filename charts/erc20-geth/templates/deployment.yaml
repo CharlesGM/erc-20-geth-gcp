@@ -3,16 +3,19 @@ kind: Deployment
 metadata:
   name: {{ include "erc20-geth.fullname" . }}
   labels:
-    {{- include "erc20-geth.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "erc20-geth.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "erc20-geth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/name: {{ include "erc20-geth.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        {{- include "erc20-geth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "erc20-geth.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       {{- with .Values.securityContext }}
       securityContext:
@@ -22,6 +25,7 @@ spec:
       - name: geth
         image: "{{ .Values.geth.image.repository }}:{{ .Values.geth.image.tag }}"
         imagePullPolicy: {{ .Values.geth.image.pullPolicy }}
+        command: ["/bin/sh", "/scripts/entrypoint.sh"]
         ports:
         - containerPort: {{ .Values.geth.service.httpPort }}
           name: http-rpc
@@ -39,6 +43,8 @@ spec:
         volumeMounts:
         - name: geth-storage
           mountPath: /data/geth
+        - name: scripts-volume
+          mountPath: /scripts
         {{- with .Values.geth.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
@@ -50,4 +56,8 @@ spec:
           claimName: {{ include "erc20-geth.fullname" . }}-pvc
         {{- else }}
         emptyDir: {}
-        {{- end }} 
+        {{- end }}
+      - name: scripts-volume
+        configMap:
+          name: {{ include "erc20-geth.fullname" . }}-scripts
+          defaultMode: 0755 
