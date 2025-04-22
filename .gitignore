@@ -14,4 +14,27 @@ geth-data
 
 # IDE files
 .vscode
-.idea 
+.idea
+
+*.terraform*
+*.out
+kube-config*
+kube_config*
+sp.auto.tfvars
+auto.tfvars
+*.bak
+*_output
+acr-tf
+chart
+*_path
+*.tfstate.*
+terraform.tfstate.backup
+terraform.tfstate
+terraform.tfstate.backup.*
+ssh_keys
+ssh_keys/*
+*.pub
+*.pem
+.terraform
+.terraform.lock.hcl
+credentials.json

@@ -1,7 +1,10 @@
 # GKE Cluster Configuration
 resource "google_container_cluster" "primary" {
   name     = var.cluster_name
-  location = var.region
+  location = var.region  # Ensure this is region, not zone, for high availability
+
+  # Optionally specify node locations to avoid the problematic zone
+  node_locations = ["europe-west1-b", "europe-west1-c"]  # Exclude europe-west1-d
 
   network    = var.network_name
   subnetwork = var.subnet_name
