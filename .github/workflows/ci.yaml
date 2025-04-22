@@ -25,6 +25,7 @@ env:
   HELM_CHART_PATH: ./charts/erc20-geth
   REPOSITORY_NAME: erc20-geth
   NAMESPACE: erc20
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
   build-and-deploy:
@@ -80,6 +81,11 @@ jobs:
       run: |
         echo "Installing GKE authentication plugin..."
         gcloud components install gke-gcloud-auth-plugin --quiet
+        echo "Setting kubectl to use gke-gcloud-auth-plugin..."
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        kubectl config set-cluster gke \
+          --server="https://$(gcloud container clusters describe erc-20 --region=${{ env.GCP_REGION }} --format='value(endpoint)')" \
+          --certificate-authority=<(gcloud container clusters describe erc-20 --region=${{ env.GCP_REGION }} --format='value(masterAuth.clusterCaCertificate)' | base64 --decode)
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
     # Get credentials for GKE cluster access
@@ -145,15 +151,15 @@ jobs:
     # Create namespace if it doesn't exist
     - name: Create namespace
       run: |
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
     # Deploy to GKE
     - name: Deploy to GKE
-      env:
-        USE_GKE_GCLOUD_AUTH_PLUGIN: True
       run: |
         # Reactivate GCP authentication
-        gcloud container clusters get-credentials erc20-cluster \
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        gcloud container clusters get-credentials erc-20 \
           --region ${{ env.GCP_REGION }} \
           --project ${{ env.PROJECT_ID }}
         
@@ -184,6 +190,7 @@ jobs:
       if: github.event.inputs.deploy_environment == 'prod'
       run: |
         # Wait for the node to be ready
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         echo "Waiting for Geth node to be ready..."
         kubectl wait --for=condition=available --timeout=300s deployment/erc20-geth -n ${{ env.NAMESPACE }}
         
