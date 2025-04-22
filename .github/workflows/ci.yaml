@@ -86,7 +86,7 @@ jobs:
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v1
       with:
-        cluster_name: 'erc20'
+        cluster_name: 'erc-20'
         location: ${{ env.GCP_REGION }}
         project_id: ${{ env.PROJECT_ID }}
         use_auth_provider: true
