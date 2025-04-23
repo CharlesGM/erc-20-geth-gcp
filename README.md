@@ -6,6 +6,9 @@ This project demonstrates how to deploy an ERC-20 token contract on Ethereum and
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Local Development](#local-development)
+  - [Deploying the Token](#deploying-the-token-to-local-node)
+  - [Managing Tokens](#managing-tokens)
+  - [Verifying Transactions](#verifying-transactions-on-the-blockchain)
 - [Connecting with MetaMask](#connecting-with-metamask)
 - [Deploying to GKE](#deploying-to-gke)
 - [Helm Chart Deployment](#helm-chart-deployment)
@@ -17,7 +20,9 @@ This project demonstrates how to deploy an ERC-20 token contract on Ethereum and
 - `contracts/` - Solidity smart contracts
   - `SimpleToken.sol` - ERC-20 token implementation using OpenZeppelin
 - `scripts/` - Deployment and utility scripts
-  - `deploy.js` - Script to deploy the token contract with configurable parameters
+  - `deploy.js` - Script to deploy the token contract with configurable recipient
+  - `check-balance.js` - Script to check ETH and token balances for any address
+  - `transfer-tokens.js` - Script to transfer tokens between accounts
 - `docker/` - Docker configuration for Geth
   - `geth/` - Geth node configuration
 - `terraform/` - Infrastructure as Code for GCP/GKE
@@ -82,14 +87,77 @@ This launches a Geth node in development mode with:
 ### Deploying the Token to Local Node
 
 Deploy the ERC-20 token to your local node:
+
 ```bash
+# Deploy with tokens assigned to the deployer (default)
 npm run deploy:local
+
+# Deploy with tokens assigned to your MetaMask wallet
+RECIPIENT_ADDRESS=0xYourMetaMaskAddress npx hardhat run scripts/deploy.js --network localhost
 ```
 
 The script will:
 1. Connect to the local Geth node
-2. Use a pre-funded development account to deploy the contract (NOT your MetaMask wallet)
-3. Output the contract address and token details
+2. Use a pre-funded development account to deploy the contract
+3. Mint all tokens to either the deployer or your specified address
+4. Output the contract address and token details
+
+### Managing Tokens
+
+Check token balances:
+```bash
+# Check the balance of the deployer
+npm run balance
+
+# Check the balance of any address for a specific token
+ADDRESS=0xYourAddress TOKEN_ADDRESS=0xTokenAddress npx hardhat run scripts/check-balance.js --network localhost
+```
+
+Transfer tokens:
+```bash
+# Transfer tokens to another address (like your MetaMask wallet)
+RECIPIENT_ADDRESS=0xRecipientAddress AMOUNT=1000 TOKEN_ADDRESS=0xTokenAddress npx hardhat run scripts/transfer-tokens.js --network localhost
+```
+
+### Verifying Transactions on the Blockchain
+
+After deploying or transferring tokens, you can verify the transactions on the blockchain using the JSON-RPC API:
+
+#### 1. Check Current Block Number
+
+```bash
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
+```
+
+#### 2. Examine Block Contents
+
+```bash
+# Replace <blockNumber> with the block number from the previous call (in hex)
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["<blockNumber>", true],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
+```
+
+#### 3. Check Transaction Details
+
+```bash
+# Replace <txHash> with your transaction hash
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["<txHash>"],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
+```
+
+#### 4. Check Token Balance (Using JSON-RPC)
+
+For advanced users, you can also check token balances using the low-level JSON-RPC API:
+
+```bash
+# Create a call data to query balanceOf(address) for your address
+# Format: 0x70a08231000000000000000000000000<your-address-without-0x>
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"<tokenAddress>", "data":"0x70a08231000000000000000000000000<addressWithout0x>"},"latest"],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
+```
+
+The result will be a hex-encoded number that you'll need to convert to decimal and divide by 10^18 (for tokens with 18 decimals).
 
 ## Connecting with MetaMask
 
@@ -121,9 +189,9 @@ After deploying the contract:
 ### Receiving Test Tokens
 
 For local development:
-- The deployer account holds all tokens initially
-- You can create a script to transfer tokens to your MetaMask address
-- Use a faucet script to transfer ETH from local dev accounts to your MetaMask wallet
+- You can deploy directly to your MetaMask address using the `RECIPIENT_ADDRESS` environment variable
+- Alternatively, you can deploy to the default account and transfer tokens using the transfer script
+- The contract owner can mint additional tokens if needed
 
 For Sepolia testnet:
 - Deploy the contract using your MetaMask account's private key in `.env`

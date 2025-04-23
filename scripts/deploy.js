@@ -7,8 +7,18 @@ async function main() {
   try {
     const [deployer] = await ethers.getSigners();
     
+    // Get the recipient address from environment variable or use deployer
+    const recipientAddress = process.env.RECIPIENT_ADDRESS || deployer.address;
+    
+    if (!ethers.isAddress(recipientAddress)) {
+      console.error("Invalid recipient address");
+      console.error("Set a valid Ethereum address in the RECIPIENT_ADDRESS environment variable");
+      process.exit(1);
+    }
+    
     console.log("Deploying contracts with the account:", deployer.address);
     console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
+    console.log("Initial token holder will be:", recipientAddress);
 
     const tokenName = "My Simple Token";
     const tokenSymbol = "MST";
@@ -23,7 +33,7 @@ async function main() {
       tokenSymbol,
       tokenDecimals,
       initialSupply,
-      deployer.address
+      recipientAddress // Use the provided address as the initial token holder and owner
     );
     
     console.log("Transaction sent, waiting for deployment. This may take a moment...");
@@ -47,11 +57,21 @@ async function main() {
     }
     
     if (deployed) {
-      console.log("Token deployed to:", await token.getAddress());
+      const tokenAddress = await token.getAddress();
+      console.log("Token deployed to:", tokenAddress);
       console.log(`Token Name: ${tokenName}`);
       console.log(`Token Symbol: ${tokenSymbol}`);
       console.log(`Token Decimals: ${tokenDecimals}`);
       console.log(`Initial Supply: ${initialSupply} ${tokenSymbol}`);
+      console.log("");
+      console.log("MetaMask Import Instructions:");
+      console.log("--------------------------");
+      console.log("1. Open MetaMask");
+      console.log("2. Click 'Import tokens'");
+      console.log(`3. Enter the contract address: ${tokenAddress}`);
+      console.log(`4. Token Symbol: ${tokenSymbol}`);
+      console.log(`5. Decimals: ${tokenDecimals}`);
+      console.log("6. Click 'Import'");
     } else {
       console.log("Failed to deploy after multiple attempts. The node might need more time to initialize.");
     }
