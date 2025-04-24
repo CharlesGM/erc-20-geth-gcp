@@ -1,5 +1,5 @@
 # Workflow name
-name: Build and Deploy ERC-20 Geth
+name: Build and Deploy ERC-20 on Geth
 # Trigger a new build with updated ConfigMap and removed deprecated flags
 
 on:
@@ -29,7 +29,7 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
-  build-and-deploy:
+  build-and-deploy-erc20-on-geth:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
