@@ -218,10 +218,10 @@ jobs:
         
         # Wait for the node to be ready
         echo "Waiting for Geth node to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/erc20-geth -n ${{ env.NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/erc20-erc20-geth -n ${{ env.NAMESPACE }}
         
         # Set up port forwarding in the background
-        kubectl port-forward service/erc20-geth 8545:8545 -n ${{ env.NAMESPACE }} &
+        kubectl port-forward service/erc20-erc20-geth 8545:8545 -n ${{ env.NAMESPACE }} &
         PORT_FORWARD_PID=$!
         
         # Wait for port to be ready

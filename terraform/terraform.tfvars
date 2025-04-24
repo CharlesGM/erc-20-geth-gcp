@@ -8,8 +8,8 @@ service_cidr = "10.32.0.0/16"
 # GKE Configuration
 cluster_name                  = "erc-20"
 environment                   = "dev"
-workload_identity_pool_id     = "erc-20-geth-gm-gh-pool"
-workload_identity_provider_id = "erc-20-geth-gh-provider"
+workload_identity_pool_id     = "erc-20-eth-gm-gh-pool"
+workload_identity_provider_id = "erc-20-eth-gh-provider"
 
 # Node Pool
 node_count     = 1

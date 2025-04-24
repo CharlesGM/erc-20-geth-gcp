@@ -297,6 +297,18 @@ The infrastructure follows security best practices:
 
 After successfully deploying the infrastructure with Terraform and running the CI/CD pipeline, follow these steps to test your ERC-20 token deployment:
 
+### Accessing Your GKE Cluster
+
+First, set up your local environment to access the GKE cluster:
+
+```bash
+# Configure kubectl to use your GKE cluster
+gcloud container clusters get-credentials erc-20 --region europe-west1 --project play-project-325908
+
+# Verify connection to the cluster
+kubectl get nodes
+```
+
 ### Verify Deployment Status
 
 Check that all components are deployed and running:
@@ -304,9 +316,23 @@ Check that all components are deployed and running:
 ```bash
 kubectl get pods -n erc20
 kubectl get services -n erc20
+kubectl get deployments -n erc20
 ```
 
 Ensure all pods are in the `Running` state and the service is available.
+
+### Examine Deployment Details
+
+```bash
+# Check deployment details
+kubectl describe deployment erc20-geth -n erc20
+
+# Check service details
+kubectl describe service erc20-geth -n erc20
+
+# Check logs from the Geth node
+kubectl logs deployment/erc20-geth -n erc20
+```
 
 ### Access Your Geth Node
 
@@ -316,54 +342,64 @@ Set up port forwarding to access your deployed Geth node:
 kubectl port-forward service/erc20-geth 8545:8545 -n erc20
 ```
 
-Keep this terminal open while testing.
-
-### Check Node Synchronization
-
-Verify your node is operational by checking the current block number:
+Keep this terminal open while testing. In a new terminal, you can now interact with your Geth node as if it were running locally:
 
 ```bash
-curl -X POST -H "Content-Type: application/json" \
-  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  http://localhost:8545
+# Check block number
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
 ```
 
-### Configure MetaMask
+### Check Contract Deployment
 
-1. Open MetaMask
-2. Add a new network with the following details:
-   - Network Name: `GKE Geth`
-   - RPC URL: `http://localhost:8545`
-   - Chain ID: 
-     - `1337` (for dev environment)
-     - `11155111` (for Sepolia testnet)
-   - Currency: `ETH`
-
-### Verify Your Token Contract
-
-1. Find the deployed contract address in the CI logs or by checking:
-   ```bash
-   kubectl logs deployment/erc20-geth -n erc20 | grep "Contract deployed to"
-   ```
-
-2. In MetaMask:
-   - Click "Import tokens"
-   - Enter the contract address
-   - The token symbol and decimals should auto-fill
-   - Confirm you have the expected token balance
-
-### Test Token Functionality
-
-1. Send a small amount of tokens to another account
-2. Verify the transaction was successful and balances updated correctly
-3. Check that the token implements the ERC-20 standard functions correctly
-
-### Monitor Logs
-
-Keep an eye on your node's logs to ensure everything is operating correctly:
+To find the address of your deployed token contract:
 
 ```bash
-kubectl logs deployment/erc20-geth -n erc20 -f
+# Check logs for deployment information
+kubectl logs deployment/erc20-geth -n erc20 | grep "Token deployed to"
+
+# Alternatively, check recent transactions
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", true],"id":1}' \
+  -H "Content-Type: application/json" http://localhost:8545
+```
+
+### Test Your Token on GKE
+
+Once you have the contract address from the logs, you can test it using your scripts:
+
+```bash
+# Check token balance
+ADDRESS=0xYourAddress TOKEN_ADDRESS=0xContractAddress npx hardhat run scripts/check-balance.js --network sepolia
+
+# Transfer tokens
+RECIPIENT_ADDRESS=0xRecipientAddress AMOUNT=100 TOKEN_ADDRESS=0xContractAddress npx hardhat run scripts/transfer-tokens.js --network sepolia
+```
+
+### Using K9s (Optional)
+
+For a more interactive experience, you can use K9s, a terminal-based UI for Kubernetes:
+
+```bash
+# Install K9s (if not already installed)
+brew install k9s
+
+# Launch K9s and navigate to the erc20 namespace
+k9s -n erc20
+```
+
+### Cleaning Up Resources
+
+When you're done testing, you can clean up resources:
+
+```bash
+# Delete the port-forwarding process
+# (Press Ctrl+C in the terminal where port-forwarding is running)
+
+# Optionally, scale down the deployment when not in use to save resources
+kubectl scale deployment erc20-geth --replicas=0 -n erc20
+
+# To scale it back up when needed
+kubectl scale deployment erc20-geth --replicas=1 -n erc20
 ```
 
 ### Troubleshooting Common Issues
