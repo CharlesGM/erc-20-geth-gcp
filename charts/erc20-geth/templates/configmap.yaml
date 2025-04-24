@@ -16,11 +16,17 @@ data:
     RPC_PORT=${GETH_RPC_PORT:-8545}
     WS_PORT=${GETH_WS_PORT:-8546}
 
+    echo "GETH_NETWORK: $NETWORK"
+    echo "GETH_DATA_DIR: $DATA_DIR"
+    echo "GETH_RPC_PORT: $RPC_PORT"
+    echo "GETH_WS_PORT: $WS_PORT"
+
     # Create data directory if it doesn't exist
     mkdir -p $DATA_DIR
 
     # Start Geth with specific network and ports
     if [ "$NETWORK" = "sepolia" ]; then
+      echo "Starting Geth on Sepolia testnet..."
       exec geth \
         --sepolia \
         --datadir="$DATA_DIR" \
@@ -34,9 +40,10 @@ data:
         --ws.port=$WS_PORT \
         --ws.origins="*" \
         --ws.api="eth,net,web3,personal,txpool" \
-        --syncmode=light
+        --syncmode=snap
     else
       # Development mode with local blockchain
+      echo "Starting Geth in development mode..."
       exec geth \
         --dev \
         --datadir="$DATA_DIR" \

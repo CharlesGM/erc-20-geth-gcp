@@ -12,6 +12,7 @@ mkdir -p $DATA_DIR
 
 # Start Geth with specific network and ports
 if [ "$NETWORK" = "sepolia" ]; then
+  echo "Starting Geth on Sepolia testnet..."
   exec geth \
     --sepolia \
     --datadir="$DATA_DIR" \
@@ -25,9 +26,10 @@ if [ "$NETWORK" = "sepolia" ]; then
     --ws.port=$WS_PORT \
     --ws.origins="*" \
     --ws.api="eth,net,web3,personal,txpool" \
-    --syncmode=light
+    --syncmode=snap
 else
   # Development mode with local blockchain
+  echo "Starting Geth in development mode..."
   exec geth \
     --dev \
     --datadir="$DATA_DIR" \

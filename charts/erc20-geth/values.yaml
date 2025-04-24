@@ -12,6 +12,17 @@ geth:
   # Network configuration (sepolia or dev)
   network: sepolia
   
+  # Environment variables for Geth container
+  env:
+    - name: GETH_NETWORK
+      value: "sepolia"
+    - name: GETH_DATA_DIR
+      value: "/data/geth"
+    - name: GETH_RPC_PORT
+      value: "8545"
+    - name: GETH_WS_PORT
+      value: "8546"
+  
   resources:
     requests:
       memory: "2Gi"
