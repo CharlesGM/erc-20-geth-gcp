@@ -227,11 +227,11 @@ jobs:
         # Wait for port to be ready
         sleep 10
         
-        # Create .env file for deployment
-        echo "SEPOLIA_RPC_URL=http://localhost:8545" > .env
+        # Create .env file for deployment with a public Sepolia RPC endpoint
+        echo "SEPOLIA_RPC_URL=https://ethereum-sepolia.blockpi.network/v1/rpc/public" > .env
         echo "SEPOLIA_PRIVATE_KEY=${{ secrets.SEPOLIA_PRIVATE_KEY }}" >> .env
         
-        # Extract the address from private key and check balance
+        # Extract the address from private key and check balance using public node
         echo "Checking wallet balance..."
         npm run balance:sepolia || true
         
