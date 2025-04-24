@@ -210,6 +210,35 @@ The project is set up to automatically deploy to GKE using GitHub Actions when p
    - `GCP_SERVICE_ACCOUNT` - Service account configured with container.admin and artifactregistry.writer roles
    - `SEPOLIA_PRIVATE_KEY` - (For production) Private key for contract deployment
 
+### Funding Your Wallet for Sepolia Deployment
+
+When deploying to the Sepolia testnet in production mode, the deployment wallet needs to have Sepolia ETH to pay for gas fees:
+
+1. Extract your wallet address from your private key (don't share your private key):
+   ```js
+   const { ethers } = require('ethers');
+   const wallet = new ethers.Wallet('your-private-key');
+   console.log(wallet.address);
+   ```
+
+2. Get Sepolia ETH from a faucet:
+   - Visit [Sepolia Faucet](https://sepoliafaucet.com/) 
+   - Or [Alchemy Sepolia Faucet](https://sepoliafaucet.com/)
+   - Or [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+   - Enter your wallet address and complete verification
+
+3. Verify your balance before deploying:
+   ```bash
+   # Using curl
+   curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["YOUR_WALLET_ADDRESS", "latest"],"id":1}' \
+     -H "Content-Type: application/json" https://sepolia.infura.io/v3/YOUR_INFURA_KEY
+   
+   # Or using Etherscan
+   # Visit https://sepolia.etherscan.io/address/YOUR_WALLET_ADDRESS
+   ```
+
+4. You need at least 0.1 Sepolia ETH for deploying the contract.
+
 ### Infrastructure Provisioning
 
 The infrastructure is defined as code using Terraform:

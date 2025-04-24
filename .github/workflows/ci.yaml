@@ -231,7 +231,12 @@ jobs:
         echo "SEPOLIA_RPC_URL=http://localhost:8545" > .env
         echo "SEPOLIA_PRIVATE_KEY=${{ secrets.SEPOLIA_PRIVATE_KEY }}" >> .env
         
-        # Deploy the contract
+        # Extract the address from private key and check balance
+        echo "Checking wallet balance..."
+        npm run balance:sepolia || true
+        
+        # Run the deploy script, which will fail if there's insufficient funds
+        echo "Attempting to deploy contract..."
         npm run deploy
         
         # Kill port forwarding
